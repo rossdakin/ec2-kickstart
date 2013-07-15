@@ -41,16 +41,8 @@ my $instance = $1 or die "Could not get new instance ID";
 
 
 # wait for instance to be "running"
-print "Waiting for new instance ($instance) to be 'running'...\n";
-my $state;
-
-do {
-    sleep(3);
-    $out = `ec2-describe-instances $instance`;
-    $out =~ m/INSTANCE(?:\t[^\t]*){4}\t(\w+)/;
-    $state = $1 or die "Could not determine instance state";
-    print "  State: $state\n";
-} while ($state ne "running");
+print "Waiting 30 seconds for new instance ($instance) to be running...\n";
+sleep(30);
 
 
 # get IP from host name
