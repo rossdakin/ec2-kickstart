@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 use File::Basename;
-use Socket;
 
 my $ami = "ami-XXXXXXXX";
 my $group = "MY-GROUP-NAME";
@@ -11,6 +10,7 @@ my $keypair = "MY-KEY-NAME";
 my $zone = "us-east-1b";
 my $type = "m1.small";
 my $host_name = "my.public.host.name";
+my $dns_ttl = 60; # seconds
 my $vol_name = "MyVolume";
 my $snap_name = "$vol_name (backup)";
 my $snap_desc = "Pre-attachment backup (" . basename($0) . ")";
@@ -40,25 +40,29 @@ $out =~ m/INSTANCE\t(i-\w+)/;
 my $instance = $1 or die "Could not get new instance ID";
 
 
+# get instance IP
+print "Getting public IP address of new instance ($instance)...\n";
+
+$out = `ec2-describe-instances`;
+$out =~ m/INSTANCE\s+$instance(?:\s+\S+){11}\s+(\d+\.\d+\.\d+\.\d+)/;
+
+my $ip = $1 or die "Could not get new instance IP";
+
+
+# update DNS
+$cmd = join(' ',
+            "update_host.py",
+            "$host_name",
+            "$host_name",
+            "-t $dns_ttl",
+            "-a $ip");
+
+print `$cmd`;
+
+
 # wait for instance to be "running"
 print "Waiting 30 seconds for new instance ($instance) to be running...\n";
 sleep(30);
-
-
-# get IP from host name
-print "Resolving host name ($host_name) to IP address...\n";
-
-my $ip = inet_ntoa(inet_aton($host_name)) or die "Couldn't resolve $host_name";
-
-
-# associate
-print "Associating elastic IP address ($ip) with instance ($instance)...\n";
-$cmd = join(' ',
-            "ec2-associate-address",
-            "-i $instance",
-            "$ip");
-
-$out = `$cmd` or die "Failed to associate $ip";
 
 
 # get volume ID from name
