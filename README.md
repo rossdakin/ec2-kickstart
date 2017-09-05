@@ -18,3 +18,30 @@ Now when you run the Perl file:
 Remote Desktop to your Windows address and you’re all set! Shut down the computer when you’re done, and all clean-up will happen automatically (instance termination, EBS volume detachment, elastic IP disassociation).
 
 NOTE: the Perl script specifies that your instance should terminate (rather than stop) when you shut down Windows internally. That allows us to tear it all down by just using the Windows regular shutdown method, instead of using the Amazon web interface or API.
+
+**Note** — as of 6c14ce937e2e1b4f35af33274ed76be7dd136b93, part of the duties of this task (the DNS updating) have been moved to a PowerShell script that is run on the actual host:
+
+```powershell
+Initialize-AWSDefaultConfiguration
+
+$hosted_zone = "xxxxxxxxxxxxxx"
+$rrset_name = "my.domain.name"
+
+$new_ipv4 = (curl http://169.254.169.254/latest/meta-data/public-ipv4).Content
+
+$change = New-Object Amazon.Route53.Model.Change
+$change.Action = "UPSERT"
+$change.ResourceRecordSet = New-Object Amazon.Route53.Model.ResourceRecordSet
+$change.ResourceRecordSet.Name = $rrset_name
+$change.ResourceRecordSet.Type = "A"
+$change.ResourceRecordSet.TTL = 60
+$change.ResourceRecordSet.ResourceRecords.Add(@{Value="$new_ipv4"})
+
+$params = @{
+  HostedZoneId=$hosted_zone
+  ChangeBatch_Comment="Update DNS to $new_ipv4"
+  ChangeBatch_Change=$change
+}
+
+Edit-R53ResourceRecordSet @params
+```
